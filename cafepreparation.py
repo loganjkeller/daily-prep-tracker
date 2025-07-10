@@ -83,6 +83,12 @@ sold: {sold}
 
 # === Streamlit App UI ===
 st.title("Cafe Parioli - Daily Prep & Waste Tracker")
+st.markdown(
+    "<div style='text-align: center; font-size: 12px; color: gray; margin-top: 50px;'>"
+    "DEVELOP BY WOLF BY LOGAN TECHNOLOGY ®"
+    "</div>",
+    unsafe_allow_html=True
+)
 
 st.subheader("🔄 Record Today's Data")
 with st.form("entry_form"):
