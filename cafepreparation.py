@@ -3,23 +3,24 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import date
 import pandas as pd
-import json
 import smtplib
 from email.message import EmailMessage
-import os
 import json
 
-# === Google Sheets Setup ===
+# === Setup Google Sheets Client ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_dict = json.loads(st.secrets["gcreds"])
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-client = gspread.authorize(creds)
-sheet = client.open("Daily Prep Tracker").worksheet("Sheet1")
 
-sh = client.open("Daily Prep Tracker")
-st.write(sh.worksheets())
+try:
+    creds_dict = json.loads(st.secrets["gcreds"])
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
+    spreadsheet = client.open("Daily Prep Tracker")
+    sheet = spreadsheet.worksheet("Sheet1")
+except Exception as e:
+    st.error(f"Failed to connect to Google Sheet: {e}")
+    st.stop()
 
-# === Email Secrets ===
+# === Email Credentials from Secrets ===
 EMAIL_SENDER = st.secrets["EMAIL_SENDER"]
 EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
 EMAIL_RECEIVER = st.secrets["EMAIL_RECEIVER"]
@@ -33,14 +34,21 @@ PRODUCTS = [
     "Ham Cheese Sandwich", "Zucchini Pesto Sandwich", "Tiramisu"
 ]
 
-# === Google Sheet Helpers ===
+# === Google Sheets Helper Functions ===
 def save_entry_to_sheet(entry):
-    sheet.append_row(entry)
+    try:
+        sheet.append_row(entry)
+    except Exception as e:
+        st.error(f"Failed to save entry to sheet: {e}")
 
 def load_data_from_sheet():
-    return pd.DataFrame(sheet.get_all_records())
+    try:
+        return pd.DataFrame(sheet.get_all_records())
+    except Exception as e:
+        st.error(f"Failed to load data from sheet: {e}")
+        return pd.DataFrame()
 
-# === Email Sender ===
+# === Email Sender Function ===
 def send_email(entry_dict, daily_df):
     msg = EmailMessage()
     msg["Subject"] = f"New Inventory Entry - {entry_dict['Date']}"
@@ -73,7 +81,7 @@ Sold: {sold}
     except Exception as e:
         st.error(f"Email failed to send: {e}")
 
-# === Streamlit App ===
+# === Streamlit App UI ===
 st.title("Cafe Parioli - Daily Prep & Waste Tracker")
 
 st.subheader("🔄 Record Today's Data")
@@ -100,7 +108,6 @@ with st.form("entry_form"):
         }
 
         save_entry_to_sheet(entry)
-
         df_today = load_data_from_sheet()
         df_today = df_today[df_today["Date"] == str(entry_date)]
         df_today["Sold"] = df_today["Prepared"] - (df_today["Remanence"] + df_today["Waste"])
