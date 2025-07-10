@@ -11,7 +11,7 @@ import json
 scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 try:
-    creds_dict = json.loads(st.secrets["gcreds"])
+    creds_dict = dict(st.secrets["gcreds"])  # Convert from AttrDict to plain dict
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     spreadsheet = client.open("Daily Prep Tracker")
