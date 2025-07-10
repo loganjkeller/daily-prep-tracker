@@ -17,7 +17,7 @@ try:
     spreadsheet = client.open("Daily Prep Tracker")
     sheet = spreadsheet.worksheet("Sheet1")
 except Exception as e:
-    st.error(f"Failed to connect to Google Sheet: {e}")
+    st.error(f"Failed to connect to Google Sheet: {e.__class__.__name__} - {e}")
     st.stop()
 
 # === Email Credentials from Secrets ===
