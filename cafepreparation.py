@@ -1,56 +1,64 @@
 import streamlit as st
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from datetime import date
 import pandas as pd
+import json
 import smtplib
 from email.message import EmailMessage
-from datetime import date
-from dotenv import load_dotenv
 import os
+import json
 
-load_dotenv()
+# === Google Sheets Setup ===
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds_dict = json.loads(st.secrets["gcreds"])
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+client = gspread.authorize(creds)
+sheet = client.open("Daily Prep Tracker").sheet1
 
-EMAIL_SENDER = os.getenv("EMAIL_SENDER")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
+# === Email Secrets ===
+EMAIL_SENDER = st.secrets["EMAIL_SENDER"]
+EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
+EMAIL_RECEIVER = st.secrets["EMAIL_RECEIVER"]
 
+# === Product List ===
+PRODUCTS = [
+    "Bombolone chocolate", "Bombolone Pistachio", "Bombolone strawberry", "Bombolone Chantilli creme", "Brownie",
+    "Croissant Chocolate", "Croissant Pistachio", "Croissant Plain", "Apple turn over", "Multigrain Muffin",
+    "Chocolate chip Muffin", "Caprese sandwich", "Egg salad Sandwich", "Prosciutto Arugula Sandwich",
+    "Chicken Cutlet Sandwich", "Maritozzo", "Mix Berry Tart", "Pizza", "Prosciutto Cheese Sandwich",
+    "Ham Cheese Sandwich", "Zucchini Pesto Sandwich", "Tiramisu"
+]
 
-# === CONFIG ===
-FILE = "inventory_log.csv"
-PRODUCTS = ["Bombolone chocolate", "Bombolone Pistachio", "Bombolone strawberry", "Bombolone Chantilli creme", "Brownie",
-            "Croissant Chocolate", "Croissant Pistachio", "Croissant Plain","Apple turn over","Multigrain Muffin","Chocolate chip Muffin","Caprese sandwich",
-            "Egg salad Sandwich","Prosciutto Arugula Sandwich","Chicken Cutlet Sandwich","Maritozzo","Mix Berry Tart","Pizza","Prosciutto Cheese Sandwich", "Ham Cheese Sandwich",
-            "Zucchini Pesto Sandwich","Tiramisu",]
+# === Google Sheet Helpers ===
+def save_entry_to_sheet(entry):
+    sheet.append_row(entry)
 
-# === LOAD CSV ===
-@st.cache_data
-def load_data():
-    try:
-        return pd.read_csv(FILE)
-    except:
-        return pd.DataFrame(columns=["Date", "Item", "Prepared", "Remanence", "Waste"])
+def load_data_from_sheet():
+    return pd.DataFrame(sheet.get_all_records())
 
-df = load_data()
-
-# === EMAIL FUNCTION ===
-def send_email(entry, daily_summary):
+# === Email Sender ===
+def send_email(entry_dict, daily_df):
     msg = EmailMessage()
-    msg["Subject"] = f"New Inventory Entry - {entry['Date']}"
+    msg["Subject"] = f"New Inventory Entry - {entry_dict['Date']}"
     msg["From"] = EMAIL_SENDER
     msg["To"] = EMAIL_RECEIVER
 
-    sold = entry['Prepared'] - (entry['Remanence'] + entry['Waste'])
+    sold = entry_dict['Prepared'] - (entry_dict['Remanence'] + entry_dict['Waste'])
+
     body = f"""New inventory entry submitted:
 
-Item: {entry['Item']}
-Date: {entry['Date']}
-Prepared: {entry['Prepared']}
-Remaining: {entry['Remanence']}
-Waste: {entry['Waste']}
+Item: {entry_dict['Item']}
+Date: {entry_dict['Date']}
+Prepared: {entry_dict['Prepared']}
+Remaining: {entry_dict['Remanence']}
+Waste: {entry_dict['Waste']}
 Sold: {sold}
 
---- DAILY TOTALS for {entry['Date']} ---
+--- DAILY TOTALS for {entry_dict['Date']} ---
 """
 
-    for row in daily_summary.itertuples():
+    for row in daily_df.itertuples():
         body += f"\n{row.Item}: Sold {row.Sold}, Waste {row.Waste}, Remaining {row.Remanence}"
 
     msg.set_content(body)
@@ -60,12 +68,11 @@ Sold: {sold}
             smtp.login(EMAIL_SENDER, EMAIL_PASSWORD)
             smtp.send_message(msg)
     except Exception as e:
-        print("Email failed:", e)
+        st.error(f"Email failed to send: {e}")
 
-# === STREAMLIT UI ===
-st.title("🍞 Daily Prep & Waste Tracker")
+# === Streamlit App ===
+st.title("Cafe Parioli - Daily Prep & Waste Tracker")
 
-# --- Data Entry ---
 st.subheader("🔄 Record Today's Data")
 with st.form("entry_form"):
     col1, col2 = st.columns(2)
@@ -73,37 +80,33 @@ with st.form("entry_form"):
         entry_date = st.date_input("Date", value=date.today())
         item = st.selectbox("Item", PRODUCTS)
     with col2:
-        prepared = st.number_input("Prepared (morning)", min_value=0.0, step=1.0)
-        remanence = st.number_input("Remaining (night)", min_value=0.0, step=1.0)
-        waste = st.number_input("Thrown Out", min_value=0.0, step=1.0)
+        prepared = st.number_input("Prepared", min_value=0.0, step=1.0)
+        remanence = st.number_input("Remaining", min_value=0.0, step=1.0)
+        waste = st.number_input("Waste", min_value=0.0, step=1.0)
 
     submitted = st.form_submit_button("✅ Save Entry")
 
     if submitted:
-        new_entry = {
+        entry = [str(entry_date), item, prepared, remanence, waste]
+        entry_dict = {
             "Date": str(entry_date),
             "Item": item,
             "Prepared": prepared,
             "Remanence": remanence,
             "Waste": waste
         }
-        df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-        df.to_csv(FILE, index=False)
 
-        # Prepare and send email summary
-        df["Sold"] = df["Prepared"] - (df["Remanence"] + df["Waste"])
-        daily_summary = df[df["Date"] == str(entry_date)].groupby("Item").agg({
-            "Prepared": "sum",
-            "Remanence": "sum",
-            "Waste": "sum",
-            "Sold": "sum"
-        }).reset_index()
+        save_entry_to_sheet(entry)
 
-        send_email(new_entry, daily_summary)
-        st.success("Entry saved and email sent!")
+        df_today = load_data_from_sheet()
+        df_today = df_today[df_today["Date"] == str(entry_date)]
+        df_today["Sold"] = df_today["Prepared"] - (df_today["Remanence"] + df_today["Waste"])
 
-# --- Dashboard ---
-st.subheader("📊 Dashboard")
+        send_email(entry_dict, df_today)
+        st.success("Saved and email sent!")
+
+st.subheader("📊 Cafe Parioli Tracking Dashboard")
+df = load_data_from_sheet()
 if not df.empty:
     df["Sold"] = df["Prepared"] - (df["Remanence"] + df["Waste"])
     summary = df.groupby(["Date", "Item"]).agg({
@@ -112,7 +115,6 @@ if not df.empty:
         "Waste": "sum",
         "Sold": "sum"
     }).reset_index()
-
     st.dataframe(summary)
 else:
-    st.info("No entries yet.")
+    st.info("No data yet.")
