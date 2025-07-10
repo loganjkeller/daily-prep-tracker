@@ -51,26 +51,26 @@ def load_data_from_sheet():
 # === Email Sender Function ===
 def send_email(entry_dict, daily_df):
     msg = EmailMessage()
-    msg["Subject"] = f"New Inventory Entry - {entry_dict['Date']}"
+    msg["Subject"] = f"New Inventory Entry - {entry_dict['date']}"
     msg["From"] = EMAIL_SENDER
     msg["To"] = EMAIL_RECEIVER
 
-    sold = entry_dict['Prepared'] - (entry_dict['Remanence'] + entry_dict['Waste'])
+    sold = entry_dict['prepared'] - (entry_dict['remanence'] + entry_dict['waste'])
 
     body = f"""New inventory entry submitted:
 
-Item: {entry_dict['Item']}
-Date: {entry_dict['Date']}
-Prepared: {entry_dict['Prepared']}
-Remaining: {entry_dict['Remanence']}
-Waste: {entry_dict['Waste']}
-Sold: {sold}
+item: {entry_dict['item']}
+date: {entry_dict['date']}
+prepared: {entry_dict['prepared']}
+remaining: {entry_dict['remanence']}
+waste: {entry_dict['waste']}
+sold: {sold}
 
---- DAILY TOTALS for {entry_dict['Date']} ---
+--- DAILY TOTALS for {entry_dict['date']} ---
 """
 
     for row in daily_df.itertuples():
-        body += f"\n{row.Item}: Sold {row.Sold}, Waste {row.Waste}, Remaining {row.Remanence}"
+        body += f"\n{row.item}: sold {row.sold}, waste {row.waste}, remaining {row.remanence}"
 
     msg.set_content(body)
 
@@ -88,29 +88,29 @@ st.subheader("🔄 Record Today's Data")
 with st.form("entry_form"):
     col1, col2 = st.columns(2)
     with col1:
-        entry_date = st.date_input("Date", value=date.today())
-        item = st.selectbox("Item", PRODUCTS)
+        entry_date = st.date_input("date", value=date.today())
+        item = st.selectbox("item", PRODUCTS)
     with col2:
-        prepared = st.number_input("Prepared", min_value=0.0, step=1.0)
-        remanence = st.number_input("Remaining", min_value=0.0, step=1.0)
-        waste = st.number_input("Waste", min_value=0.0, step=1.0)
+        prepared = st.number_input("prepared", min_value=0.0, step=1.0)
+        remanence = st.number_input("remaining", min_value=0.0, step=1.0)
+        waste = st.number_input("waste", min_value=0.0, step=1.0)
 
     submitted = st.form_submit_button("✅ Save Entry")
 
     if submitted:
         entry = [str(entry_date), item, prepared, remanence, waste]
         entry_dict = {
-            "Date": str(entry_date),
-            "Item": item,
-            "Prepared": prepared,
-            "Remanence": remanence,
-            "Waste": waste
+            "date": str(entry_date),
+            "item": item,
+            "prepared": prepared,
+            "remanence": remanence,
+            "waste": waste
         }
 
         save_entry_to_sheet(entry)
         df_today = load_data_from_sheet()
-        df_today = df_today[df_today["Date"] == str(entry_date)]
-        df_today["Sold"] = df_today["Prepared"] - (df_today["Remanence"] + df_today["Waste"])
+        df_today = df_today[df_today["date"] == str(entry_date)]
+        df_today["sold"] = df_today["prepared"] - (df_today["remanence"] + df_today["waste"])
 
         send_email(entry_dict, df_today)
         st.success("Saved and email sent!")
@@ -118,12 +118,12 @@ with st.form("entry_form"):
 st.subheader("📊 Cafe Parioli Tracking Dashboard")
 df = load_data_from_sheet()
 if not df.empty:
-    df["Sold"] = df["Prepared"] - (df["Remanence"] + df["Waste"])
-    summary = df.groupby(["Date", "Item"]).agg({
-        "Prepared": "sum",
-        "Remanence": "sum",
-        "Waste": "sum",
-        "Sold": "sum"
+    df["sold"] = df["prepared"] - (df["remanence"] + df["waste"])
+    summary = df.groupby(["date", "item"]).agg({
+        "prepared": "sum",
+        "remanence": "sum",
+        "waste": "sum",
+        "sold": "sum"
     }).reset_index()
     st.dataframe(summary)
 else:
