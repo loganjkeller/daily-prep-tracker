@@ -14,7 +14,7 @@ try:
     creds_dict = dict(st.secrets["gcreds"])  # Convert from AttrDict to plain dict
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
-    spreadsheet = client.open("Daily Prep Tracker")
+    spreadsheet = client.open_by_key("1XvHHGrzOdQcTNSFnb9cinckaP5AUZAAhYvoTgoBTQ2o")
     sheet = spreadsheet.worksheet("Sheet1")
 except Exception as e:
     st.error(f"Failed to connect to Google Sheet: {e.__class__.__name__} - {e}")
