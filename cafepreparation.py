@@ -16,6 +16,9 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 sheet = client.open("Daily Prep Tracker").worksheet("Foglio1")
 
+sh = client.open("Daily Prep Tracker")
+st.write(sh.worksheets())
+
 # === Email Secrets ===
 EMAIL_SENDER = st.secrets["EMAIL_SENDER"]
 EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]
