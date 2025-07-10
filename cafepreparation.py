@@ -8,7 +8,7 @@ from email.message import EmailMessage
 import json
 
 # === Setup Google Sheets Client ===
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 try:
     creds_dict = json.loads(st.secrets["gcreds"])
