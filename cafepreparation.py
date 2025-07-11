@@ -31,7 +31,7 @@ PRODUCTS = [
     "Croissant Chocolate", "Croissant Pistachio", "Croissant Plain", "Apple turn over", "Multigrain Muffin",
     "Chocolate chip Muffin", "Caprese sandwich", "Egg salad Sandwich", "Prosciutto Arugula Sandwich",
     "Chicken Cutlet Sandwich", "Maritozzo", "Mix Berry Tart", "Pizza", "Prosciutto Cheese Sandwich",
-    "Ham Cheese Sandwich", "Zucchini Pesto Sandwich", "Tiramisu", "Vegan Crostata",
+    "Ham Cheese Sandwich", "Zucchini Pesto Sandwich", "Tiramisu", "Vegan Crostata Tart",
 ]
 
 # === Google Sheets Helper Functions ===
